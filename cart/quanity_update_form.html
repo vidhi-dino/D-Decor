@@ -1,0 +1,141 @@
+<!-- Quantity Update Form for Cart Items -->
+<form method="post" action="{% url 'cart:update' item.id %}" class="quantity-form">
+    {% csrf_token %}
+    <div class="input-group input-group-sm" style="max-width: 150px;">
+        <button class="btn btn-outline-secondary" type="button" onclick="decreaseQuantity(this)">
+            <i class="bi bi-dash"></i>
+        </button>
+        <input type="number" 
+               name="quantity" 
+               value="{{ item.quantity }}" 
+               min="1" 
+               max="99" 
+               class="form-control text-center quantity-input"
+               data-item-id="{{ item.id }}"
+               onchange="updateQuantity(this)">
+        <button class="btn btn-outline-secondary" type="button" onclick="increaseQuantity(this)">
+            <i class="bi bi-plus"></i>
+        </button>
+    </div>
+    <small class="text-muted d-block mt-1">
+        <i class="bi bi-info-circle"></i> 
+        Total: ₹<span class="item-total">{{ item.get_total_price }}</span>
+    </small>
+</form>
+
+<script>
+function decreaseQuantity(button) {
+    const input = button.nextElementSibling;
+    const currentValue = parseInt(input.value);
+    if (currentValue > 1) {
+        input.value = currentValue - 1;
+        updateQuantity(input);
+    }
+}
+
+function increaseQuantity(button) {
+    const input = button.previousElementSibling;
+    const currentValue = parseInt(input.value);
+    if (currentValue < 99) {
+        input.value = currentValue + 1;
+        updateQuantity(input);
+    }
+}
+
+function updateQuantity(input) {
+    const form = input.closest('form');
+    const formData = new FormData(form);
+    
+    // Show loading state
+    input.disabled = true;
+    
+    fetch(form.action, {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Update item total
+            const itemTotal = input.closest('.cart-item').querySelector('.item-total');
+            if (itemTotal) {
+                itemTotal.textContent = data.item_total;
+            }
+            
+            // Update cart subtotal
+            const cartSubtotal = document.querySelector('.cart-subtotal');
+            if (cartSubtotal) {
+                cartSubtotal.textContent = data.cart_subtotal;
+            }
+            
+            // Update cart count in navbar
+            const cartBadges = document.querySelectorAll('.cart-count');
+            cartBadges.forEach(badge => {
+                badge.textContent = data.cart_count;
+            });
+            
+            // Show success toast
+            showToast('Cart updated successfully', 'success');
+        } else {
+            showToast('Error updating cart', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showToast('Error updating cart', 'error');
+    })
+    .finally(() => {
+        input.disabled = false;
+    });
+}
+
+function showToast(message, type) {
+    const toast = document.createElement('div');
+    toast.className = `alert alert-${type === 'success' ? 'success' : 'danger'} alert-dismissible fade show`;
+    toast.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    const container = document.getElementById('toast-container');
+    if (container) {
+        container.appendChild(toast);
+        
+        // Auto-remove after 3 seconds
+        setTimeout(() => {
+            if (toast.parentNode) {
+                toast.remove();
+            }
+        }, 3000);
+    }
+}
+</script>
+
+<style>
+.quantity-form .input-group-sm .btn {
+    border-radius: 0;
+}
+
+.quantity-form .input-group-sm .form-control {
+    border-left: 0;
+    border-right: 0;
+}
+
+.quantity-input::-webkit-outer-spin-button,
+.quantity-input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.quantity-input[type=number] {
+    -moz-appearance: textfield;
+}
+
+.quantity-form .btn:hover {
+    background-color: #e9ecef;
+}
+</style>
